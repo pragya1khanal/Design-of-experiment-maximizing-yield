@@ -1,0 +1,429 @@
+---
+title: "Applied project"
+author: "Pragya"
+date: "2022-11-15"
+output: html_document
+---
+
+#First design
+
+```{r}
+library(FrF2)
+two_to_8_min4 <- FrF2(nruns=16, nfactors=8, ncent=4, randomize=TRUE, alias.info=3, generator = c ("BCD","ACD","ABC","ABD"))
+two_to_8_min4
+desnum(two_to_8_min4)
+design.info(two_to_8_min4)$aliased
+design.info(two_to_8_min4)$aliased$main
+design.info(two_to_8_min4)$aliased$fi2
+generators(two_to_8_min4)
+```
+
+
+
+```{r}
+A<-c(8,8,9,9,7,9,7,7,9,9,8,9,7,9,7,7,7,9,7,8)
+B<-c(2,2,3,1,3,3,3,3,3,1,2,1,1,3,3,1,1,1,1,2)
+C<-c(6,6,5,7,5,5,5,7,7,5,6,5,7,7,7,7,5,7,5,6)
+D<-c(3,3,2,2,4,4,2,4,2,4,3,2,4,4,2,2,4,4,2,3)
+E<-c(4,4,5,5,3,3,5,5,3,5,4,3,3,5,3,5,5,3,3,4)
+F<-c(7,7,8,6,8,6,6,6,6,6,7,8,6,8,8,8,8,8,6,7)
+G<-c(5,5,4,4,6,4,6,4,6,6,5,6,6,6,4,6,4,4,4,5)
+H<-c(9,9,8,10,8,10,10,8,8,8,9,10,10,10,10,8,10,8,8,9)
+y<-c(46.55, 46.55, 46.90, 44.65, 41.60, 40.56, 49.50, 43.39, 42.61, 40.91, 46.52, 41.91, 42.90, 40.72, 50.06, 50.06, 45.70, 40.28, 49.94, 47.37)
+cbind(A,B,C,D,E,F,G,H,y)
+dat=data.frame(A,B,C,D,E,F,G,H,y)
+AB=A*B; AC=A*C; AD=A*D; AE=A*E; AF=A*F; AG=A*G; AH=A*H
+```
+
+
+```{r}
+A<-c(0,0,1,1,-1,1,-1,-1,1,1,0,1,-1,1,-1,-1,-1,1,-1,0)
+B<-c(0,0,1,-1,1,1,1,1,1,-1,0,-1,-1,1,1,-1,-1,-1,-1,0)
+C<-c(0,0,-1,1,-1,-1,-1,1,1,-1,0,-1,1,1,1,1,-1,1,-1,0)
+D<-c(0,0,-1,-1,1,1,-1,1,-1,1,0,-1,1,1,-1,-1,1,1,-1,0)
+E<-c(0,0,1,1,-1,-1,1,1,-1,1,0,-1,-1,1,-1,1,1,-1,-1,0)
+F<-c(0,0,1,-1,1,-1,-1,-1,-1,-1,0,1,-1,1,1,1,1,1,-1,0)
+G<-c(0,0,-1,-1,1,-1,1,-1,1,1,0,1,1,1,-1,1,-1,-1,-1,0)
+H<-c(0,0,-1,1,-1,1,1,-1,-1,-1,0,1,1,1,1,-1,1,-1,-1,0)
+y<-c(46.55, 46.55, 46.90, 44.65, 41.60, 40.56, 49.89, 43.39, 40.88, 40.91, 46.52, 41.91, 42.90, 40.72, 50.06, 50.06, 45.70, 40.28, 49.94, 47.37)
+dat=data.frame(A,B,C,D,E,F,G,H,y)
+cbind(A,B,C,D,E,F,G,H,y)
+AB=A*B; AC=A*C; AD=A*D; AE=A*E; AF=A*F; AG=A*G; AH=A*H
+reg=lm(y~A+B+C+D+E+F+G+H+AB+AC+AD+AE+AF+AG+AH)
+```
+
+```{r}
+summary(reg)
+```
+
+
+```{r}
+#Separate SS_residuals into pure error (SS_E) and curvature SS_quad (quadratic of lack of fit)
+nf=15
+nc=4
+ybarf=mean(y[1:nf])
+ybarc=mean(y[(nf+1):(nf+nc)])
+
+ssquad=(nf*nc*(ybarf-ybarc)^2)/(nf+nc)
+mse=var(y[(nf+1):(nf+nc)])
+sse=(nc-1)*mse
+
+#Recalculate the F statistics and p-values using MSE
+SS <- c(2*reg$coefficients[2:16]^2, ssquad,sse)
+Fvec = SS/mse
+ms <- c(SS[1:16],mse)
+p_val <- 1-pf(Fvec,1,nc-1)
+Fvec[17] <- NA; p_val[17]<- NA 
+labels=c("A","B","C","D","E","F","G", "H", "AB","AC","AD","AE","AF","AG","AH","Quad")
+
+
+calcs <- c(ybarf, ybarc, ssquad, sse, mse)
+names(calcs) <- c("y_bar_f", "y_bar_c", "SS_quad", "SS_E", "MS_E")
+cp_out <- cbind(SS,Fvec,p_val)
+rownames(cp_out) <- labels
+
+calcs
+cp_out
+```
+
+
+```{r}
+# rsm function example
+#from "Response-Surface Methods in R Using rsm", Lenth (2012)
+library(rsm)
+dat
+```
+
+```{r}
+#create Coded variables
+#Note ChemReact1 is the 2^2 plus 3 centerpoints, i.e. block 1
+CR1 <- coded.data(dat, x1 ~ (A - 8)/1, x2 ~ (D-3)/1, x3 ~ (E-4)/1)
+CR1
+```
+
+```{r}
+#fit first order model (FO)
+CR1.rsm <- rsm(y2 ~ FO(x1,x2), data = CR1)
+summary(CR1.rsm)
+```
+
+```{r}
+contour(CR1.rsm, ~ x1 + x2 ,image=T)
+steepest(CR1.rsm)
+```
+
+```{r}
+#adapt to add the interaction
+#TWI = two-way interaction
+CR1.rsmi <- update(CR1.rsm, . ~ . + TWI(x1,x2,x3))
+summary(CR1.rsmi)
+```
+
+```{r}
+CR1.rsmnew <- rsm(y ~ FO(x1,x2,x3) + TWI(x1,x2,x3), data=CR1)
+summary(CR1.rsmnew)
+```
+
+```{r}
+#contour plot
+dat
+CR2 <- djoin(CR1, dat)
+CR2
+```
+
+```{r}
+CR2.rsm <- rsm(y ~ SO(x1, x2,x3), data = CR1 )
+summary(CR2.rsm)
+```
+
+```{r}
+contour(CR2.rsm, y ~ x1 + x2, data=CR1, image=TRUE)
+path <- steepest(CR2.rsm)
+path
+dim(path)
+```
+
+```{r}
+summary(reg)
+```
+
+
+```{r}
+reduced_reg<-lm(y~A+D+E)
+summary(reduced_reg)
+```
+
+```{r}
+effects = 2*reduced_reg$coefficients[2:3]
+sort(abs(effects))
+halfnormal(effects)
+```
+
+
+```{r}
+alpha=.05
+s0=1.5*median(abs(effects))
+pse=1.5*median(abs(effects)[abs(effects)<2.5*s0])
+m=length(effects)
+me=qt(1-alpha/2,m/3)*pse
+gamma=1-(1+(1-alpha)^(1/m))/2
+sme=qt(1-gamma,m/3)*pse
+lenth_out <- c(alpha,s0,pse,me,sme) #output some values of interest
+names(lenth_out) <- c("alpha", "s0", "PSE", "ME", "SME")
+cat("Important Lenth Values \n")
+lenth_active <- cbind(effects,abs(effects)>me,abs(effects)>sme)
+colnames(lenth_active) <- c("Effects", " ME active =1", " SME active =1")
+cat("\n")
+cat("Table of Active Effects \n")
+barplot(abs(effects), main="Lenth's Procedure", col="green")
+abline(me,0,lty=1, col="brown")
+abline(sme,0,lty=2, col="orange")
+text(m,me,"ME")
+text(m,sme,"SME")
+```
+
+
+
+```{r}
+A=c(6,6,4,8,4,8,8,4,4,8,8,4,4,8,8,4,6)
+
+B=c(4,8,6,6,4,8,4,8,4,8,4,8,8,4,8,4,6)
+
+C=c(8,4,4,8,6,6,8,4,8,4,4,8,8,4,8,4,6)
+
+D=c(8,4,8,4,8,4,6,6,4,8,4,8,4,8,8,4,6)
+
+E=c(4,8,8,4,8,4,8,4,6,6,8,4,8,4,8,4,6)
+
+F=c(8,4,8,4,4,8,8,4,4,8,6,6,8,4,4,8,6)
+
+G=c(8,4,8,4,4,8,4,8,8,4,8,4,6,6,8,4,6)
+
+H=c(8,4,4,8,8,4,4,8,4,8,8,4,8,4,6,6,6)
+
+y2=c(48.74,51.52,46.73,45.50,44.55,43.11,47.56,38.04,44.38,47.94,49.67,36.72,46.34,45.92,54.51,41.76,43.95)
+
+cbind(A,B,C,D,E,F,G,H,y2)
+
+dat2<-data.frame(A,B,C,D,E,F,G,H,y2)
+
+```
+
+```{r}
+regression<-lm(y2~A+E, data=dat2)
+summary(regression)
+```
+```{r}
+#Separate SS_residuals into pure error (SS_E) and curvature SS_quad (quadratic of lack of fit)
+nf=8
+nc=1
+ybarf=mean(y[1:nf])
+ybarc=mean(y[(nf+1):(nf+nc)])
+
+ssquad=(nf*nc*(ybarf-ybarc)^2)/(nf+nc)
+mse=var(y[(nf+1):(nf+nc)])
+sse=(nc-1)*mse
+
+#Recalculate the F statistics and p-values using MSE
+SS <- c(2*regression$coefficients[2:9]^2, ssquad,sse)
+Fvec = SS/mse
+ms <- c(SS[1:9],mse)
+p_val <- 1-pf(Fvec,1,nc-1)
+Fvec[10] <- NA; p_val[10]<- NA 
+labels=c("A","B","C","D","E","F","G", "H","Quad","Error")
+
+
+calcs <- c(ybarf, ybarc, ssquad, sse, mse)
+names(calcs) <- c("y_bar_f", "y_bar_c", "SS_quad", "SS_E", "MS_E")
+cp_out <- cbind(SS,Fvec,p_val)
+rownames(cp_out) <- labels
+
+calcs
+cp_out
+```
+
+```{r}
+library(daewr)
+Design<-DefScreen(m=8,c=0)
+#model
+HierAFS(y2,Design,m=8,c=0,step=1)
+```
+
+
+```{r}
+effects = 2*regression$coef[2:16] 
+alpha=0.05
+
+s0=1.5*median(abs(effects))
+pse=1.5*median(abs(effects)[abs(effects)<2.5*s0])
+m=length(effects)
+me=qt(1-alpha/2,m/3)*pse
+gamma=1-(1+(1-alpha)^(1/m))/2
+sme=qt(1-gamma,m/3)*pse
+lenth_out <- c(alpha,s0,pse,me,sme)  #output some values of interest
+names(lenth_out) <- c("alpha", "s0", "PSE", "ME", "SME")
+#cat("Important Lenth Values \n")
+#lenth_out
+# In column 2 in output, 1 = significant based on me
+# In column 3 in output, 1 = significant based on sme
+lenth_active <- cbind(effects,abs(effects)>me,abs(effects)>sme)
+colnames(lenth_active) <- c("Effects", " ME active =1", " SME active =1")
+#cat("\n")
+#cat("Table of Active Effects \n")
+#lenth_active
+
+barplot(abs(effects), main="Lenth's Procedure", col="green")
+abline(me,0,lty=1, col="brown")
+abline(sme,0,lty=2, col="orange")
+text(m,me,"ME")
+text(m,sme,"SME")
+```
+
+
+```{r}
+# rsm function example
+#from "Response-Surface Methods in R Using rsm", Lenth (2012)
+library(rsm)
+dat2
+
+#create Coded variables
+#Note ChemReact1 is the 2^2 plus 3 centerpoints, i.e. block 1
+CR1 <- coded.data(dat2, x1 ~ (A - 6)/2, x2 ~ (E-6)/2)
+CR1
+```
+
+```{r}
+#fit first order model (FO)
+CR1.rsm <- rsm(y2 ~ FO(x1,x2), data = CR1)
+summary(CR1.rsm)
+```
+
+```{r}
+contour(CR1.rsm, ~x1 + x2,image=T)
+
+```
+```{r}
+df=data.frame(x1=(7.5-6)/2,x2=(7.5-6)/2)
+```
+
+
+```{r}
+predict(CR1.rsm, df, interval="prediction")
+```
+
+```{r}
+#adapt to add the interaction
+#TWI = two-way interaction
+CR1.rsmi <- update(CR1.rsm, . ~ . + TWI(x1,x2))
+summary(CR1.rsmi)
+```
+
+```{r}
+
+CR1.rsmnew <- rsm(y2 ~ FO(x1,x2) + TWI(x1,x2), data=CR1)
+summary(CR1.rsmnew)
+```
+
+```{r}
+#Note ChemReact2 is the axial points plus 3 centerpoints, i.e. block 2
+dat2
+CR2 <- djoin(CR1, dat2)
+CR2
+```
+
+```{r}
+#Fit full second order (SO) model
+CR2.rsm <- rsm(y2 ~ SO(x1, x2), data = CR1)
+summary(CR2.rsm)
+```
+
+```{r}
+contour(CR2.rsm, ~ x1 + x2 , image=TRUE)
+path <- steepest(CR1.rsm)
+path
+dim(path)
+```
+
+```{r}
+predict(CR2.rsm, CR2, interval="predict")
+```
+
+```{r}
+A<-c(4,6,4,6,4,6,4,6,6.73,3.27,5,5,5,5,5,5,5,5) 
+
+B<-c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0) 
+
+C<-c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0) 
+
+D<-c(4,4,6,6,4,4,6,6,5,5,6.73,3.27,5,5,5,5,5,5) 
+
+E<-c(4,4,4,4,6,6,6,6,5,5,5,5,6.73,3.27,5,5,5,5) 
+
+F<-c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0) 
+
+G<-c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0) 
+
+H<-c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0) 
+
+y<-c(44.07, 45.39, 37.44, 43.00, 41.30, 47.35, 38.53, 43.08, 45.62, 34.79, 42.55, 46.75, 44.82, 41.67, 42.30, 41.78, 39.98, 41.45)
+
+dat=data.frame(A,B,C,D,E,F,G,H,y)
+```
+
+```{r}
+# rsm function example
+#from "Response-Surface Methods in R Using rsm", Lenth (2012)
+library(rsm)
+dat
+```
+
+```{r}
+#create Coded variables
+#Note ChemReact1 is the 2^2 plus 3 centerpoints, i.e. block 1
+CR1 <- coded.data(dat, x1 ~ (A - 5)/1, x2 ~ (E-5)/1)
+CR1
+```
+
+```{r}
+
+#fit first order model (FO)
+CR1.rsm <- rsm(y ~ FO(x1,x2), data = CR1)
+summary(CR1.rsm)
+
+```
+
+```{r}
+contour(CR1.rsm, ~ x1 + x2 + x3,image=T)
+steepest(CR1.rsm)
+```
+```{r}
+
+#adapt to add the interaction
+#TWI = two-way interaction
+CR1.rsmi <- update(CR1.rsm, . ~ . + TWI(x1,x2,x3))
+summary(CR1.rsmi)
+
+```
+
+
+```{r}
+CR1.rsmnew <- rsm(y ~ FO(x1,x2,x3) + TWI(x1,x2,x3), data=CR1)
+summary(CR1.rsmnew)
+```
+
+```{r}
+#contour plot
+dat
+CR2 <- djoin(CR1, dat)
+CR2
+```
+
+```{r}
+CR2.rsm <- rsm(y ~ SO(x1, x2,x3), data = CR2 )
+summary(CR2.rsm)
+
+```
+
+```{r}
+predict(CR2.rsm, interval="confidence", level=0.95)
+```
